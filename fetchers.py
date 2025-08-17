@@ -6,23 +6,40 @@ from urllib.parse import quote_plus
 
 # ✅ GoogleニュースRSSを使って安全にニュースを取得
 def fetch_news(queries=None, max_items=20, lang="ja", region="JP"):
+    """
+    GoogleニュースRSSで透析関連ニュースを取得。
+    到達できなかった場合はフォールバックURLでも試す。
+    戻り値: [{'title':..., 'url':..., 'source':...}, ...]
+    """
     if queries is None:
         queries = ["透析 技術", "ダイアライザー", "HDF OR hemodiafiltration"]
 
     rows = []
-    base = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={ceid}"
+    # 正式：q=...&hl=ja&gl=JP&ceid=JP:ja
+    base1 = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}:{hl}"
+    # フォールバック：順序違いでも対応
+    base2 = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}%3A{hl}"
+
     for q in queries:
-        url = base.format(q=quote_plus(q), hl=lang, gl=region, ceid=f"{region}:{lang}")
-        feed = feedparser.parse(url)
-        for e in feed.entries[:max_items]:
-            title = e.title
-            link = e.link
-            source = getattr(getattr(e, "source", None), "title", None) or getattr(e, "author", None) or "Google News"
-            rows.append({"title": title, "url": link, "source": source})
-            if len(rows) >= max_items:
-                break
-    # 文字列リストではなく「辞書のリスト」を返す
-    return rows
+        for base in (base1, base2):
+            url = base.format(q=quote_plus(q), hl=lang, gl=region)
+            feed = feedparser.parse(url)
+            if getattr(feed, "bozo", 0) and not getattr(feed, "entries", None):
+                continue  # 次のbaseで再試行
+            for e in feed.entries[:max_items]:
+                title = getattr(e, "title", "").strip()
+                link = getattr(e, "link", "")
+                source = getattr(getattr(e, "source", None), "title", None) or getattr(e, "author", None) or "Google News"
+                if title and link:
+                    rows.append({"title": title, "url": link, "source": source})
+                if len(rows) >= max_items:
+                    break
+            if rows:
+                break  # このクエリは取得できたので次のクエリへ
+        if len(rows) >= max_items:
+            break
+
+    return rows  # 0件ならアプリ側で空表示
 
 # （下の2つはそのままでOK。あとでRSS/API版に切替予定）
 def fetch_papers():
