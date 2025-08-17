@@ -62,7 +62,6 @@ def render_list(items, empty_msg):
         st.info(empty_msg)
         return
     for t in items:
-        # dict（タイトル＋URL）の場合はリンクで表示、文字列ならそのまま
         if isinstance(t, dict):
             title = t.get("title", "")
             url = t.get("url", "")
@@ -74,6 +73,7 @@ def render_list(items, empty_msg):
             )
         else:
             st.markdown(f'<div class="card"><h4>{t}</h4></div>', unsafe_allow_html=True)
+
     st.header("📰 透析ニュース（簡易）")
     render_list(news, "ニュースが見つかりませんでした。")
 
