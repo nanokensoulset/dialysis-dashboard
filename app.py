@@ -7,14 +7,30 @@ st.set_page_config(page_title="透析技術ダッシュボード", layout="cente
 
 st.markdown("""
 <style>
-.stButton > button { padding: 0.8rem 1.1rem; font-size: 1.05rem; }
-a { word-break: break-word; }
-.card { border: 1px solid #e6e6e6; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff; }
-.card h4 { margin: 0 0 6px 0; font-size: 1.05rem;}
-.card small { color: #666; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #efefef; margin-right: 6px; font-size: 0.8rem;}
+/* 文字色とフォントを固定して、ダークでも消えないようにする */
+html, body, [class^="st-"], .stMarkdown, .stText, .stCaption {
+  color: #111 !important;
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP","Hiragino Kaku Gothic ProN","Meiryo",sans-serif !important;
+}
+
+/* カードの見やすさ */
+.card {
+  border: 1px solid #e6e6e6; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff;
+}
+.card h4 { margin: 0 0 6px 0; font-size: 1.05rem; }
+.card small { color: #444; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #efefef; margin-right: 6px; font-size: 0.8rem; }
+
+/* 端末がダーク設定でも読めるように上書き */
+@media (prefers-color-scheme: dark) {
+  html, body, [class^="st-"], .stMarkdown, .stText, .stCaption { color: #f5f5f5 !important; }
+  .card { background: #1f1f1f; border-color: #333; }
+  .card small { color: #bbb; }
+  .badge { background: #333; }
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 st.title("📱 透析技術ダッシュボード（簡易版）")
 st.caption("ニュース ＞ 論文 ＝ メーカー情報 ＋ 学会情報")
