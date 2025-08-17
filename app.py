@@ -62,9 +62,18 @@ def render_list(items, empty_msg):
         st.info(empty_msg)
         return
     for t in items:
-        st.markdown(f'<div class="card"><h4>{t}</h4></div>', unsafe_allow_html=True)
-
-with tab1:
+        # dict（タイトル＋URL）の場合はリンクで表示、文字列ならそのまま
+        if isinstance(t, dict):
+            title = t.get("title", "")
+            url = t.get("url", "")
+            source = t.get("source", "")
+            st.markdown(
+                f'<div class="card"><h4><a href="{url}" target="_blank">{title}</a></h4>'
+                f'<small>{source}</small></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(f'<div class="card"><h4>{t}</h4></div>', unsafe_allow_html=True)
     st.header("📰 透析ニュース（簡易）")
     render_list(news, "ニュースが見つかりませんでした。")
 
