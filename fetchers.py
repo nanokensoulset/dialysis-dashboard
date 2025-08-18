@@ -1,45 +1,61 @@
 import requests
-from bs4 import BeautifulSoup
-import pandas as pd
 import feedparser
 from urllib.parse import quote_plus
 
-# ✅ GoogleニュースRSSを使って安全にニュースを取得
 def fetch_news(queries=None, max_items=20, lang="ja", region="JP"):
     """
-    GoogleニュースRSSで透析関連ニュースを取得。
-    到達できなかった場合はフォールバックURLでも試す。
-    戻り値: [{'title':..., 'url':..., 'source':...}, ...]
+    GoogleニュースRSSを requests(+UA) で取得 → feedparser で解析。
+    3種類のURL形式に自動リトライし、最初に成功したものを採用。
+    失敗時は空リストを返す（アプリ側でメッセージ表示）。
     """
     if queries is None:
         queries = ["透析 技術", "ダイアライザー", "HDF OR hemodiafiltration"]
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/124.0 Safari/537.36"
+    }
+    # URL候補（環境によって通る/通らない差がある）
+    url_patterns = [
+        "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}:{hl}",
+        "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}%3A{hl}",
+        # 旧形式（地域パラメータなし）
+        "https://news.google.com/rss/search?q={q}&hl={hl}"
+    ]
+
     rows = []
-    # 正式：q=...&hl=ja&gl=JP&ceid=JP:ja
-    base1 = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}:{hl}"
-    # フォールバック：順序違いでも対応
-    base2 = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}%3A{hl}"
-
     for q in queries:
-        for base in (base1, base2):
-            url = base.format(q=quote_plus(q), hl=lang, gl=region)
-            feed = feedparser.parse(url)
-            if getattr(feed, "bozo", 0) and not getattr(feed, "entries", None):
-                continue  # 次のbaseで再試行
-            for e in feed.entries[:max_items]:
-                title = getattr(e, "title", "").strip()
-                link = getattr(e, "link", "")
-                source = getattr(getattr(e, "source", None), "title", None) or getattr(e, "author", None) or "Google News"
-                if title and link:
-                    rows.append({"title": title, "url": link, "source": source})
-                if len(rows) >= max_items:
-                    break
-            if rows:
-                break  # このクエリは取得できたので次のクエリへ
-        if len(rows) >= max_items:
-            break
+        q_enc = quote_plus(q)
+        success_this_query = False
+        for pat in url_patterns:
+            url = pat.format(q=q_enc, hl=lang, gl=region)
+            try:
+                r = requests.get(url, headers=headers, timeout=12)
+                r.raise_for_status()
+                feed = feedparser.parse(r.content)  # 文字列でなく bytes を渡すのが安定
+                if getattr(feed, "entries", None):
+                    for e in feed.entries[:max_items]:
+                        title = getattr(e, "title", "").strip()
+                        link = getattr(e, "link", "")
+                        source = getattr(getattr(e, "source", None), "title", None) or getattr(e, "author", None) or "Google News"
+                        if title and link:
+                            rows.append({"title": title, "url": link, "source": source})
+                        if len(rows) >= max_items:
+                            break
+                    success_this_query = len(rows) > 0
+            except Exception:
+                # 次のURL候補で再試行
+                pass
 
-    return rows  # 0件ならアプリ側で空表示
+            if success_this_query:
+                break  # このクエリはOKだったので次のクエリへ
+
+        if len(rows) >= max_items:
+            break  # 全体の上限に達したら終了
+
+    return rows
+
 
 # （下の2つはそのままでOK。あとでRSS/API版に切替予定）
 def fetch_papers():
